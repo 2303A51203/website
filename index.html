@@ -1,0 +1,379 @@
+<!-- Save as index.html -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Simple E-Shop (Client Only)</title>
+  <style>
+    /* Simple reset */
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: Inter, system-ui, Arial; }
+    body { background:#f5f7fb; color:#1f2937; padding:20px; }
+
+    header { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+    h1 { font-size:20px; }
+    .badge { background:#111827; color:#fff; padding:6px 10px; border-radius:8px; font-size:13px; }
+    .container { display:grid; grid-template-columns: 1fr 320px; gap:20px; }
+
+    /* Products */
+    .products { display:grid; grid-template-columns: repeat(auto-fill,minmax(180px,1fr)); gap:14px; }
+    .card { background:#fff; border-radius:10px; padding:12px; box-shadow: 0 4px 10px rgba(16,24,40,0.06); display:flex; flex-direction:column; gap:8px; }
+    .product-img { height:110px; border-radius:8px; background:linear-gradient(135deg,#e6eefc,#fef3c7); display:flex; align-items:center; justify-content:center; font-weight:600; color:#0f172a; }
+    .prod-name { font-weight:600; font-size:14px; }
+    .prod-price { color:#0b6; font-weight:700; }
+    .actions { margin-top:auto; display:flex; gap:8px; }
+    button { cursor:pointer; border:0; padding:8px 10px; border-radius:8px; font-weight:600; }
+    .btn-add { background:#0ea5a4; color:white; }
+    .btn-view { background:#eef2ff; color:#3730a3; }
+
+    /* Cart */
+    aside { background:#fff; padding:12px; border-radius:10px; box-shadow: 0 6px 18px rgba(16,24,40,0.06); height:fit-content; display:flex; flex-direction:column; gap:12px; }
+    .cart-list { display:flex; flex-direction:column; gap:8px; max-height:320px; overflow:auto; padding-right:4px; }
+    .cart-item { display:flex; gap:8px; align-items:center; justify-content:space-between; }
+    .qty { display:flex; gap:6px; align-items:center; }
+    .small { font-size:13px; color:#374151; }
+    .total { display:flex; justify-content:space-between; font-weight:700; font-size:16px; }
+
+    /* Checkout modal */
+    .modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(2,6,23,0.4); }
+    .modal.show { display:flex; }
+    .sheet { width:360px; background:#fff; padding:16px; border-radius:12px; box-shadow: 0 20px 40px rgba(2,6,23,0.3); }
+
+    /* Order tracking */
+    .orders { margin-top:10px; display:flex; flex-direction:column; gap:8px; }
+    .order { background:#f8fafc; padding:8px; border-radius:8px; font-size:14px; display:flex; justify-content:space-between; align-items:center; }
+    .status { font-weight:700; font-size:13px; padding:6px 8px; border-radius:8px; }
+    .status.pending { background:#fffbeb; color:#92400e; }
+    .status.shipped { background:#eef2ff; color:#3730a3; }
+    .status.delivered { background:#ecfdf5; color:#166534; }
+
+    /* Responsive */
+    @media (max-width:900px){ .container { grid-template-columns: 1fr; } aside { order:-1; } }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Simple E-Shop — Client Side Demo</h1>
+    <div>
+      <span class="badge">Client-Only Demo</span>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- MAIN -->
+    <main>
+      <section style="margin-bottom:12px;">
+        <strong>Browse products</strong>
+        <p class="small" style="margin-top:6px;">Click "Add" to put an item in the cart. This demo stores cart and orders in your browser (localStorage).</p>
+      </section>
+
+      <section class="products" id="products"></section>
+
+      <section style="margin-top:18px;">
+        <strong>How this mimics client-server</strong>
+        <p class="small" style="margin-top:6px;">
+          In a real client-server app the client would call APIs for inventory, checkout and order status.
+          Here we simulate that behavior in the browser with JavaScript and localStorage.
+        </p>
+      </section>
+    </main>
+
+    <!-- SIDEBAR / CART -->
+    <aside>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <strong>Cart</strong>
+        <small class="small">Items in cart: <span id="cart-count">0</span></small>
+      </div>
+
+      <div class="cart-list" id="cart-list">
+        <!-- items -->
+      </div>
+
+      <div class="total">
+        <span>Total</span>
+        <span id="cart-total">₹0.00</span>
+      </div>
+
+      <div style="display:flex; gap:8px;">
+        <button class="btn-add" id="checkout-btn">Checkout</button>
+        <button class="btn-view" id="clear-btn">Clear</button>
+      </div>
+
+      <div style="margin-top:10px;">
+        <strong>Your Orders</strong>
+        <div class="orders" id="orders"></div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Checkout Modal -->
+  <div class="modal" id="modal">
+    <div class="sheet">
+      <h3 style="margin-bottom:8px;">Checkout</h3>
+      <div id="checkout-summary" class="small" style="margin-bottom:10px;"></div>
+
+      <label class="small">Name</label>
+      <input id="cust-name" style="width:100%; padding:8px; margin:6px 0 10px; border-radius:8px; border:1px solid #e6e6e6" placeholder="Full name">
+
+      <label class="small">Address</label>
+      <textarea id="cust-address" style="width:100%; padding:8px; margin:6px 0 10px; border-radius:8px; border:1px solid #e6e6e6" rows="3" placeholder="Delivery address"></textarea>
+
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button id="cancel-checkout" style="background:#eef2ff; color:#3730a3; border-radius:8px; padding:8px 10px;">Cancel</button>
+        <button id="place-order" class="btn-add">Place Order</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ---------- Simple dataset (could come from server) ---------- */
+    const PRODUCTS = [
+      { id: 'p1', name: 'Classic T-shirt', price: 399, stock: 12 },
+      { id: 'p2', name: 'Sneakers', price: 2499, stock: 6 },
+      { id: 'p3', name: 'Coffee Mug', price: 199, stock: 20 },
+      { id: 'p4', name: 'Backpack', price: 1299, stock: 3 },
+      { id: 'p5', name: 'Wireless Earbuds', price: 3499, stock: 5 }
+    ];
+
+    /* ---------- Utilities ---------- */
+    const $ = id => document.getElementById(id);
+    const format = v => '₹' + v.toFixed(2);
+
+    /* ---------- Local storage for cart & orders (simulates server persistence) ---------- */
+    function loadState() {
+      try {
+        return {
+          cart: JSON.parse(localStorage.getItem('demo_cart') || '[]'),
+          orders: JSON.parse(localStorage.getItem('demo_orders') || '[]')
+        };
+      } catch (e) {
+        return { cart: [], orders: [] };
+      }
+    }
+    function saveState(state) {
+      localStorage.setItem('demo_cart', JSON.stringify(state.cart));
+      localStorage.setItem('demo_orders', JSON.stringify(state.orders));
+    }
+
+    let state = loadState();
+
+    /* ---------- Render products ---------- */
+    const productsEl = $('products');
+    function renderProducts(){
+      productsEl.innerHTML = '';
+      for (const p of PRODUCTS){
+        const div = document.createElement('div'); div.className = 'card';
+        div.innerHTML = `
+          <div class="product-img">${p.name.split(' ').slice(0,2).join(' ').slice(0,10)}</div>
+          <div class="prod-name">${p.name}</div>
+          <div class="small">Stock: ${p.stock}</div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="prod-price">${format(p.price)}</div>
+            <div class="actions">
+              <button class="btn-view" data-id="${p.id}">View</button>
+              <button class="btn-add" data-id="${p.id}">Add</button>
+            </div>
+          </div>
+        `;
+        productsEl.appendChild(div);
+      }
+    }
+
+    /* ---------- Cart rendering & logic ---------- */
+    function findProduct(id){ return PRODUCTS.find(x=>x.id===id); }
+
+    function addToCart(id){
+      const product = findProduct(id);
+      if (!product) return;
+      const entry = state.cart.find(it => it.id === id);
+      if (entry){
+        if (entry.qty < product.stock) entry.qty += 1;
+        else alert('No more stock available');
+      } else {
+        state.cart.push({ id, qty: 1 });
+      }
+      saveState(state); renderCart();
+    }
+
+    function removeFromCart(id){
+      state.cart = state.cart.filter(it => it.id !== id);
+      saveState(state); renderCart();
+    }
+
+    function changeQty(id, delta){
+      const entry = state.cart.find(it=>it.id===id);
+      if (!entry) return;
+      const product = findProduct(id);
+      entry.qty = Math.max(1, entry.qty + delta);
+      if (entry.qty > product.stock) entry.qty = product.stock;
+      saveState(state); renderCart();
+    }
+
+    function clearCart(){
+      if (!confirm('Clear cart?')) return;
+      state.cart = []; saveState(state); renderCart();
+    }
+
+    function cartTotal(){
+      return state.cart.reduce((s,it)=> s + findProduct(it.id).price * it.qty, 0);
+    }
+
+    function renderCart(){
+      const list = $('cart-list'); list.innerHTML = '';
+      for (const it of state.cart){
+        const p = findProduct(it.id);
+        const el = document.createElement('div'); el.className = 'cart-item';
+        el.innerHTML = `
+          <div style="display:flex; gap:8px; align-items:center;">
+            <div style="width:46px;height:46px;border-radius:8px;background:#fff;padding:6px;display:flex;align-items:center;justify-content:center;border:1px solid #f0f0f0">${p.name.split(' ')[0]}</div>
+            <div>
+              <div class="small">${p.name}</div>
+              <div class="small" style="color:#6b7280">${format(p.price)}</div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div class="qty small">
+              <button style="padding:4px 8px;border-radius:6px;border:1px solid #e6e6e6;background:#fff;" onclick="changeQty('${it.id}',-1)">−</button>
+              <div>${it.qty}</div>
+              <button style="padding:4px 8px;border-radius:6px;border:1px solid #e6e6e6;background:#fff;" onclick="changeQty('${it.id}',1)">+</button>
+            </div>
+            <div style="min-width:70px; text-align:right;">${format(p.price * it.qty)}</div>
+            <button style="background:transparent;border:0;color:#ef4444;font-weight:700;margin-left:8px" onclick="removeFromCart('${it.id}')">✕</button>
+          </div>
+        `;
+        list.appendChild(el);
+      }
+
+      $('cart-count').textContent = state.cart.reduce((s,i)=>s+i.qty,0);
+      $('cart-total').textContent = format(cartTotal());
+      renderOrders();
+    }
+
+    /* Export functions to window so inline onclick works (simple demo) */
+    window.addToCart = addToCart;
+    window.removeFromCart = removeFromCart;
+    window.changeQty = changeQty;
+
+    /* Hook up product buttons using event delegation */
+    document.addEventListener('click', (e)=>{
+      if (e.target.matches('.btn-add[data-id]')) {
+        addToCart(e.target.dataset.id);
+      } else if (e.target.matches('.btn-view[data-id]')) {
+        const p = findProduct(e.target.dataset.id);
+        alert(`${p.name}\nPrice: ${format(p.price)}\nStock: ${p.stock}`);
+      }
+    });
+
+    /* ---------- Checkout & Orders (simulated server behavior) ---------- */
+    const modal = $('modal');
+    const checkoutBtn = $('checkout-btn');
+    const cancelCheckout = $('cancel-checkout');
+    const placeOrderBtn = $('place-order');
+
+    checkoutBtn.addEventListener('click', ()=>{
+      if (state.cart.length === 0) { alert('Your cart is empty'); return; }
+      $('checkout-summary').textContent = `${state.cart.length} item(s). Total: ${format(cartTotal())}`;
+      modal.classList.add('show');
+    });
+    cancelCheckout.addEventListener('click', ()=> modal.classList.remove('show'));
+
+    placeOrderBtn.addEventListener('click', ()=>{
+      const name = $('cust-name').value.trim();
+      const address = $('cust-address').value.trim();
+      if (!name || !address){ alert('Please provide name and address'); return; }
+
+      // Create order object (simulate backend generating order id & status)
+      const order = {
+        id: 'ORD' + Date.now().toString().slice(-6),
+        createdAt: new Date().toISOString(),
+        items: JSON.parse(JSON.stringify(state.cart)),
+        total: cartTotal(),
+        customer: { name, address },
+        status: 'pending' // pending -> shipped -> delivered (we will simulate updates)
+      };
+      // "Persist" order
+      state.orders.unshift(order);
+      // decrement stock locally (simulate server inventory update)
+      for (const it of state.cart){
+        const p = findProduct(it.id);
+        p.stock = Math.max(0, p.stock - it.qty);
+      }
+      // clear cart
+      state.cart = [];
+      saveState(state);
+      renderProducts();
+      renderCart();
+      modal.classList.remove('show');
+
+      // simulate background order progression (client-side timers)
+      simulateOrderProgress(order.id);
+      alert('Order placed! Order ID: ' + order.id);
+    });
+
+    function simulateOrderProgress(orderId){
+      // change status to shipped after ~6s, delivered after ~12s (for demo)
+      setTimeout(()=> {
+        const o = state.orders.find(x=>x.id===orderId); if (!o) return;
+        o.status = 'shipped'; saveState(state); renderOrders();
+      }, 6000);
+      setTimeout(()=> {
+        const o = state.orders.find(x=>x.id===orderId); if (!o) return;
+        o.status = 'delivered'; saveState(state); renderOrders();
+      }, 12000);
+    }
+
+    /* ---------- Orders UI ---------- */
+    function renderOrders(){
+      const el = $('orders'); el.innerHTML = '';
+      if (!state.orders.length) { el.innerHTML = '<div class="small" style="color:#6b7280">No orders yet.</div>'; return; }
+      for (const o of state.orders){
+        const div = document.createElement('div'); div.className = 'order';
+        const statusClass = o.status === 'pending' ? 'pending' : o.status === 'shipped' ? 'shipped' : 'delivered';
+        div.innerHTML = `
+          <div>
+            <div style="font-weight:700">${o.id}</div>
+            <div class="small" style="color:#6b7280">${new Date(o.createdAt).toLocaleString()}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="status ${statusClass}">${o.status}</div>
+            <div class="small" style="margin-top:6px;">${format(o.total)}</div>
+            <button class="small" style="margin-top:6px;background:transparent;border:0;color:#0f172a;font-weight:700" onclick="viewOrder('${o.id}')">Details</button>
+          </div>
+        `;
+        el.appendChild(div);
+      }
+    }
+
+    window.viewOrder = function(id){
+      const o = state.orders.find(x=>x.id===id);
+      if (!o) return alert('Order not found');
+      const items = o.items.map(it => {
+        const p = findProduct(it.id) || { name:'(removed)' };
+        return `${p.name} × ${it.qty}`;
+      }).join('\n');
+      alert(`Order ${o.id}\nStatus: ${o.status}\nTotal: ${format(o.total)}\n\nItems:\n${items}\n\nShip to:\n${o.customer.name}\n${o.customer.address}`);
+    };
+
+    /* ---------- init ---------- */
+    $('clear-btn').addEventListener('click', clearCart);
+
+    // expose a few functions for demo inline handlers
+    window.clearCart = clearCart;
+
+    // initial render
+    renderProducts();
+    renderCart();
+
+    // If there are orders in storage that are pending/shipped, resume simulation for pending ones
+    for (const o of state.orders){
+      if (o.status === 'pending'){
+        // small random delay to continue progress
+        setTimeout(()=> simulateOrderProgress(o.id), 2000);
+      }
+    }
+
+    /* ----- END ----- */
+  </script>
+</body>
+</html>
